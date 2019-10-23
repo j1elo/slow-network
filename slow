@@ -1,0 +1,365 @@
+#!/usr/bin/env bash
+
+# Bash options for strict error checking
+set -o errexit -o errtrace -o pipefail -o nounset
+
+#/ slow - Simulate a low-bandwidth, high-latency network connection.
+#/
+#/ This script uses the "netem" ([1], [2]) feature available in the Linux kernel,
+#/ via the "tc" ([3]) command and the "HTB" ([4]) qdisc.
+#/
+#/ NetEm is a highly configurable traffic control discipline module which
+#/ deliberately delays, drops, and reorders packets.
+#/
+#/ This only works for egress traffic (i.e. sending packets) because the queues are
+#/ outbound only, so you may want to place a router host with NetEm between the
+#/ two test machines, and run NetEm on both interfaces (maybe with differing
+#/ parameters on each one). The easiest way to achieve this is to run NetEm in
+#/ a VM to route between two VM networks.
+#/
+#/ [1]: https://wiki.linuxfoundation.org/networking/netem
+#/ [2]: https://manpages.ubuntu.com/manpages/bionic/en/man8/tc-netem.8.html
+#/ [3]: https://manpages.ubuntu.com/manpages/bionic/en/man8/tc.8.html
+#/ [4]: https://manpages.ubuntu.com/manpages/bionic/en/man8/tc-htb.8.html
+#/
+#/ Requirements:
+#/
+#/ * A Linux operating system with the "tc" traffic control tool.
+#/   In Debian/Ubuntu, install the package "iproute2".
+#/
+#/ Usage:
+#/
+#/ slow -i <Interface> { <Preset> | [-r <Rate>] [-d <Delay>] [-l <Loss>] }
+#/ slow -i <Interface> reset
+#/ slow -i <Interface> status
+#/
+#/ Arguments:
+#/
+#/ <Interface>
+#/     Name of the network interface to be configured.
+#/     E.g.: "eth0", "enp0s25", "wlan0", etc.
+#/     Optional. Default: `"eth0"`.
+#/
+#/ <Preset>
+#/     Preconfigured set of <Rate>, <Delay> and <Loss> percentage. This
+#/     parameter is a string corresponding to one of the following categories:
+#/
+#/     -----------------------------------------------
+#/     | <Preset>     |    <Rate> | <Delay> | <Loss> |
+#/     ---------------------------|-------------------
+#/     | "2.5g"       |           |         |        |
+#/     | "gprs"       |   50 kbps |  400 ms |   5 %  |
+#/     | "edge"       |           |         |        |
+#/     -----------------------------------------------
+#/     | "3g"         |  700 kbps |  300 ms |   5 %  |
+#/     -----------------------------------------------
+#/     | "4g"         |  4.5 mbps |  120 ms |   1 %  |
+#/     -----------------------------------------------
+#/     | "modem-9600" | 9600 bps  |  200 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "modem-56k"  |   56 kbps |  120 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "t1"         | 1500 kbps |   20 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "t3"         |   45 mbps |   10 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "dsl"        |    2 mbps |   60 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "cablemodem" |   10 mbps |   50 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "wifi-b"     |   11 mbps |   10 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "wifi-g"     |   54 mbps |    5 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "wifi-n"     |  110 mbps |    2 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "eth-10"     |   10 mbps |    1 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "eth-100"    |  100 mbps |    1 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "eth-1000"   | 1000 mbps |    1 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "vsat"       |    5 mbps |  500 ms |   0 %  |
+#/     -----------------------------------------------
+#/     | "vsat-busy"  |    2 mbps |  800 ms |   0 %  |
+#/     -----------------------------------------------
+#/
+#/ <Rate>
+#/     Maximum bandwidth that the connection must be restricted to,
+#/     in kbps (kilobits per second).
+#/     Optional. Default: `500`.
+#/
+#/ <Delay>
+#/     Latency forced into the packet transmission, in milliseconds.
+#/     Optional. Default: `0`.
+#/
+#/ <Loss>
+#/     Average emulated packet drop rate, as a loss percentage.
+#/     Optional. Default: `0.0`.
+
+
+
+# Script start
+# ------------
+
+# Help message (extracted from script headers)
+usage() { grep '^#/' "$0" | cut --characters=4-; exit 0; }
+REGEX='(^|\W)(-h|--help)($|\W)'
+[[ "$*" =~ $REGEX ]] && usage || true
+
+# Check requirements
+if ! command -v tc >/dev/null; then
+    echo "ERROR: No 'tc' traffic control tool found" 1>&2
+    exit 1
+fi
+
+# Check root permissions
+[[ "$(id -u)" -eq 0 ]] || {
+    echo "ERROR: Please run as root user (or with 'sudo')" 1>&2
+    exit 1
+}
+
+
+
+# Parse arguments
+# ---------------
+
+COMMAND="apply"
+INTERFACE="eth0"
+RATE_KBPS=500
+DELAY_MS=0
+LOSS_PCT=0.0
+
+while [[ $# -gt 0 ]]; do
+    case "${1-}" in
+        2.5g|gprs|edge)
+            RATE_KBPS=50
+            DELAY_MS=400
+            LOSS_PCT=2.0
+            ;;
+        3g)
+            RATE_KBPS=700
+            DELAY_MS=300
+            LOSS_PCT=2.0
+            ;;
+        4g)
+            RATE_KBPS=4500
+            DELAY_MS=120
+            LOSS_PCT=1.0
+            ;;
+        modem-9600)
+            RATE_KBPS=9.6
+            DELAY_MS=200
+            ;;
+        modem-56k)
+            RATE_KBPS=56
+            DELAY_MS=120
+            ;;
+        t1)
+            RATE_KBPS=1500
+            DELAY_MS=20
+            ;;
+        t3)
+            RATE_KBPS=$((45 * 1000))
+            DELAY_MS=10
+            ;;
+        dsl)
+            RATE_KBPS=$((2 * 1000))
+            DELAY_MS=60
+            ;;
+        cablemodem)
+            RATE_KBPS=$((10 * 1000))
+            DELAY_MS=50
+            ;;
+        wifi-b)
+            RATE_KBPS=$((11 * 1000))
+            DELAY_MS=10
+            ;;
+        wifi-g)
+            RATE_KBPS=$((54 * 1000))
+            DELAY_MS=5
+            ;;
+        wifi-n)
+            RATE_KBPS=$((110 * 1000))
+            DELAY_MS=2
+            ;;
+        eth-10)
+            RATE_KBPS=$((10 * 1000))
+            DELAY_MS=1
+            ;;
+        eth-100)
+            RATE_KBPS=$((100 * 1000))
+            DELAY_MS=1
+            ;;
+        eth-1000)
+            RATE_KBPS=$((1000 * 1000))
+            DELAY_MS=1
+            ;;
+        vsat)
+            RATE_KBPS=$((5 * 1000))
+            DELAY_MS=500
+            LOSS_PCT=2.0
+            ;;
+        vsat-busy)
+            RATE_KBPS=$((2 * 1000))
+            DELAY_MS=800
+            LOSS_PCT=4.0
+            ;;
+        reset)
+            COMMAND="reset"
+            ;;
+        status)
+            COMMAND="status"
+            ;;
+        -i)
+            if [[ -n "${2-}" ]]; then
+                INTERFACE="$2"
+                shift
+            else
+                echo "ERROR: Missing <Interface>" 1>&2
+                exit 1
+            fi
+            ;;
+        -r)
+            if [[ -n "${2-}" ]]; then
+                RATE_KBPS="$2"
+                shift
+            else
+                echo "ERROR: Missing <Rate>" 1>&2
+                exit 1
+            fi
+            ;;
+        -d)
+            if [[ -n "${2-}" ]]; then
+                DELAY_MS="$2"
+                shift
+            else
+                echo "ERROR: Missing <Delay>" 1>&2
+                exit 1
+            fi
+            ;;
+        -l)
+            if [[ -n "${2-}" ]]; then
+                LOSS_PCT="$2"
+                shift
+            else
+                echo "ERROR: Missing <Loss>" 1>&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo "ERROR: Unknown argument '${1-}'" 1>&2
+            echo "Run with '--help' to read usage details"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+echo "Using these parameters:"
+echo "INTERFACE=$INTERFACE"
+echo "RATE_KBPS=$RATE_KBPS"
+echo "DELAY_MS=$DELAY_MS"
+echo "LOSS_PCT=$LOSS_PCT"
+
+
+
+# "status" is the only command that doesn't require an interface name
+if [[ "$COMMAND" == "status" ]]; then
+    echo "Show current queueing disciplines"
+    (
+        set -o xtrace
+        tc qdisc show
+    )
+    exit $?
+fi
+
+
+# Validate interface argument
+if ! grep -Fq "$INTERFACE" </proc/net/dev; then
+    echo "ERROR: Unknown interface '$INTERFACE'" 1>&2
+    exit 1
+fi
+
+if [[ "$COMMAND" == "reset" ]]; then
+    echo "Reset queueing discipline"
+    (
+        set -o xtrace
+        tc qdisc delete dev "$INTERFACE" root
+    )
+    exit $?
+fi
+
+# "$COMMAND" == "apply"
+
+# Choose arbitrary numbers for the Handle ID of qdiscs and classes
+QDISC_MAJOR=1
+CLASS_MINOR=12
+
+# If it doesn't exist yet, create the "htb" qdisc under the parent "root"
+if tc qdisc show dev "$INTERFACE" | grep -Fq "qdisc htb ${QDISC_MAJOR}: root"; then
+    VERB="change"
+    echo "Change existing queueing discipline"
+else
+    VERB="add"
+    echo "Add new parent queueing discipline"
+    (
+        set -o xtrace
+        tc qdisc add \
+            dev "$INTERFACE" \
+            handle "${QDISC_MAJOR}:" \
+            root \
+            htb default "$CLASS_MINOR"
+    )
+fi
+
+echo "Add an HTB class to restrict output rate"
+(
+    set -o xtrace
+    tc class "$VERB" \
+        dev "$INTERFACE" \
+        classid "${QDISC_MAJOR}:${CLASS_MINOR}" \
+        parent "${QDISC_MAJOR}:" \
+        htb \
+        rate "${RATE_KBPS}kbit"
+)
+
+echo "Add a child NetEm qdisc to emulate packet delay and loss"
+
+# Make sure the NetEm kernel module is loaded
+lsmod | grep -Fq "sch_netem" || modprobe sch_netem
+
+# In https://lists.linuxfoundation.org/pipermail/netem/2007-March/001094.html
+# (and https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do)
+# they following is said:
+#
+#     The (default) value 1000 (for "limit") is low, you want about 50% more
+#     than the max packet rate * delay
+#
+# So, we need to calculate the packet rate and find out the ideal "limit" value.
+
+# Typical Ethernet Layer 2 MTU
+MTU_SIZE=1518
+
+# `bc -l` calculates with all decimals, and `printf` rounds to nearest integer
+NETEM_LIMIT="$(printf '%.0f' "$(echo "$RATE_KBPS * 1000 / $MTU_SIZE * $DELAY_MS * 1.5" | bc -l)")"
+[[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
+
+# Default values for lattency jitter ([-5, +5] ms) and correlation %
+NETEM_JITTER_MS=5
+NETEM_CORRELATION_PCT=25
+[[ "$DELAY_MS" -lt "$NETEM_JITTER_MS" ]] && {
+    # Don't use jitter if the requested delay is too small
+    NETEM_JITTER_MS=0
+}
+
+(
+    set -o xtrace
+    tc qdisc "$VERB" \
+        dev "$INTERFACE" \
+        parent "${QDISC_MAJOR}:${CLASS_MINOR}" \
+        netem \
+        limit "$NETEM_LIMIT" \
+        delay "${DELAY_MS}ms" "${NETEM_JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
+        loss random "${LOSS_PCT}%"
+)
