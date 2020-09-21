@@ -29,73 +29,77 @@ set -o errexit -o errtrace -o pipefail -o nounset
 #/
 #/ Usage:
 #/
-#/ slow -i <Interface> { <Preset> | [-r <Rate>] [-d <Delay>] [-l <Loss>] }
+#/ slow -i <Interface> { <Preset> | [-r <Rate>] [-d <Delay>] [-j <Jitter>] [-l <Loss>] }
 #/ slow -i <Interface> reset
 #/ slow -i <Interface> status
 #/
 #/ Arguments:
 #/
 #/ <Interface>
-#/     Name of the network interface to be configured.
-#/     E.g.: "eth0", "enp0s25", "wlan0", etc.
-#/     Optional. Default: `"eth0"`.
+#/   Name of the network interface to be configured.
+#/   E.g.: "eth0", "enp0s25", "wlan0", etc.
+#/   Optional. Default: `eth0`.
 #/
 #/ <Preset>
-#/     Preconfigured set of <Rate>, <Delay> and <Loss> percentage. This
-#/     parameter is a string corresponding to one of the following categories:
+#/   Preconfigured set of <Rate>, <Delay> and <Loss> percentage. This
+#/   parameter is a string corresponding to one of the following categories:
 #/
-#/     -----------------------------------------------
-#/     | <Preset>     |    <Rate> | <Delay> | <Loss> |
-#/     ---------------------------|-------------------
-#/     | "2.5g"       |           |         |        |
-#/     | "gprs"       |   50 kbps |  400 ms |   5 %  |
-#/     | "edge"       |           |         |        |
-#/     -----------------------------------------------
-#/     | "3g"         |  700 kbps |  300 ms |   5 %  |
-#/     -----------------------------------------------
-#/     | "4g"         |  4.5 mbps |  120 ms |   1 %  |
-#/     -----------------------------------------------
-#/     | "modem-9600" | 9600 bps  |  200 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "modem-56k"  |   56 kbps |  120 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "t1"         | 1500 kbps |   20 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "t3"         |   45 mbps |   10 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "dsl"        |    2 mbps |   60 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "cablemodem" |   10 mbps |   50 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "wifi-b"     |   11 mbps |   10 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "wifi-g"     |   54 mbps |    5 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "wifi-n"     |  110 mbps |    2 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "eth-10"     |   10 mbps |    1 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "eth-100"    |  100 mbps |    1 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "eth-1000"   | 1000 mbps |    1 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "vsat"       |    5 mbps |  500 ms |   0 %  |
-#/     -----------------------------------------------
-#/     | "vsat-busy"  |    2 mbps |  800 ms |   0 %  |
-#/     -----------------------------------------------
+#/   -----------------------------------------------
+#/   | <Preset>     |    <Rate> | <Delay> | <Loss> |
+#/   ---------------------------|-------------------
+#/   | "2.5g"       |           |         |        |
+#/   | "gprs"       |   50 kbps |  400 ms |   5 %  |
+#/   | "edge"       |           |         |        |
+#/   -----------------------------------------------
+#/   | "3g"         |  700 kbps |  300 ms |   5 %  |
+#/   -----------------------------------------------
+#/   | "4g"         |  4.5 mbps |  120 ms |   1 %  |
+#/   -----------------------------------------------
+#/   | "modem-9600" | 9600 bps  |  200 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "modem-56k"  |   56 kbps |  120 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "t1"         | 1500 kbps |   20 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "t3"         |   45 mbps |   10 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "dsl"        |    2 mbps |   60 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "cablemodem" |   10 mbps |   50 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "wifi-b"     |   11 mbps |   10 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "wifi-g"     |   54 mbps |    5 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "wifi-n"     |  110 mbps |    2 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "eth-10"     |   10 mbps |    1 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "eth-100"    |  100 mbps |    1 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "eth-1000"   | 1000 mbps |    1 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "vsat"       |    5 mbps |  500 ms |   0 %  |
+#/   -----------------------------------------------
+#/   | "vsat-busy"  |    2 mbps |  800 ms |   0 %  |
+#/   -----------------------------------------------
 #/
 #/ <Rate>
-#/     Maximum bandwidth that the connection must be restricted to,
-#/     in kbps (kilobits per second).
-#/     Optional. Default: `500`.
+#/   Maximum bandwidth that the connection must be restricted to,
+#/   in kbps (kilobits per second).
+#/   Optional. Default: `500`.
 #/
 #/ <Delay>
-#/     Latency forced into the packet transmission, in milliseconds.
-#/     Optional. Default: `0`.
+#/   Latency forced into the packet transmission, in milliseconds.
+#/   Optional. Default: `0`.
+#/
+#/ <Jitter>
+#/   Jitter introduced in the rate of package transmission, in milliseconds.
+#/   Optional. Default: `0`.
 #/
 #/ <Loss>
-#/     Average emulated packet drop rate, as a loss percentage.
-#/     Optional. Default: `0.0`.
+#/   Average emulated packet drop rate, as a loss percentage.
+#/   Optional. Default: `0.0`.
 
 
 
@@ -128,6 +132,7 @@ COMMAND="apply"
 INTERFACE="eth0"
 RATE_KBPS=500
 DELAY_MS=0
+JITTER_MS=0
 LOSS_PCT=0.0
 
 while [[ $# -gt 0 ]]; do
@@ -238,6 +243,15 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        -j)
+            if [[ -n "${2-}" ]]; then
+                JITTER_MS="$2"
+                shift
+            else
+                echo "ERROR: Missing <Jitter>" 1>&2
+                exit 1
+            fi
+            ;;
         -l)
             if [[ -n "${2-}" ]]; then
                 LOSS_PCT="$2"
@@ -260,6 +274,7 @@ echo "Using these parameters:"
 echo "INTERFACE=$INTERFACE"
 echo "RATE_KBPS=$RATE_KBPS"
 echo "DELAY_MS=$DELAY_MS"
+echo "JITTER_MS=$JITTER_MS"
 echo "LOSS_PCT=$LOSS_PCT"
 
 
@@ -324,8 +339,6 @@ echo "Add an HTB class to restrict output rate"
         rate "${RATE_KBPS}kbit"
 )
 
-echo "Add a child NetEm qdisc to emulate packet delay and loss"
-
 # Make sure the NetEm kernel module is loaded
 lsmod | grep -Fq "sch_netem" || modprobe sch_netem
 
@@ -345,14 +358,10 @@ MTU_SIZE=1518
 NETEM_LIMIT="$(printf '%.0f' "$(echo "$RATE_KBPS * 1000 / $MTU_SIZE * $DELAY_MS * 1.5" | bc -l)")"
 [[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
 
-# Default values for lattency jitter ([-5, +5] ms) and correlation %
-NETEM_JITTER_MS=5
-NETEM_CORRELATION_PCT=25
-[[ "$DELAY_MS" -lt "$NETEM_JITTER_MS" ]] && {
-    # Don't use jitter if the requested delay is too small
-    NETEM_JITTER_MS=0
-}
+# Default value for latency and jitter followup burst correlation
+NETEM_CORRELATION_PCT=5
 
+echo "Add a child NetEm qdisc to emulate packet delay and loss"
 (
     set -o xtrace
     tc qdisc "$VERB" \
@@ -360,6 +369,6 @@ NETEM_CORRELATION_PCT=25
         parent "${QDISC_MAJOR}:${CLASS_MINOR}" \
         netem \
         limit "$NETEM_LIMIT" \
-        delay "${DELAY_MS}ms" "${NETEM_JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
+        delay "${DELAY_MS}ms" "${JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
         loss random "${LOSS_PCT}%"
 )
