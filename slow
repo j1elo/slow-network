@@ -42,7 +42,7 @@ set -o errexit -o errtrace -o pipefail -o nounset
 #/
 #/ <Preset>
 #/   Preconfigured set of <Rate>, <Delay> and <Loss> percentage. This
-#/   parameter is a string corresponding to one of the following categories:
+#/   argument is a string corresponding to one of the following categories:
 #/
 #/   -----------------------------------------------
 #/   | <Preset>     |    <Rate> | <Delay> | <Loss> |
@@ -109,7 +109,7 @@ set -o errexit -o errtrace -o pipefail -o nounset
 # Help message (extracted from script headers)
 usage() { grep '^#/' "$0" | cut --characters=4-; exit 0; }
 REGEX='(^|\W)(-h|--help)($|\W)'
-[[ "$*" =~ $REGEX ]] && usage || true
+[[ "$*" =~ $REGEX ]] && usage
 
 # Check requirements
 if ! command -v tc >/dev/null; then
@@ -125,100 +125,100 @@ fi
 
 
 
-# Parse arguments
-# ---------------
+# Parse options
+# -------------
 
-COMMAND="apply"
-INTERFACE="eth0"
-RATE_KBPS=500
-DELAY_MS=0
-JITTER_MS=0
-LOSS_PCT=0.0
+OPT_COMAND="apply"
+OPT_INTERFACE="eth0"
+OPT_RATE_KBPS=500
+OPT_DELAY_MS=0
+OPT_JITTER_MS=0
+OPT_LOSS_PCT=0.0
 
 while [[ $# -gt 0 ]]; do
     case "${1-}" in
         2.5g|gprs|edge)
-            RATE_KBPS=50
-            DELAY_MS=400
-            LOSS_PCT=2.0
+            OPT_RATE_KBPS=50
+            OPT_DELAY_MS=400
+            OPT_LOSS_PCT=2.0
             ;;
         3g)
-            RATE_KBPS=700
-            DELAY_MS=300
-            LOSS_PCT=2.0
+            OPT_RATE_KBPS=700
+            OPT_DELAY_MS=300
+            OPT_LOSS_PCT=2.0
             ;;
         4g)
-            RATE_KBPS=4500
-            DELAY_MS=120
-            LOSS_PCT=1.0
+            OPT_RATE_KBPS=4500
+            OPT_DELAY_MS=120
+            OPT_LOSS_PCT=1.0
             ;;
         modem-9600)
-            RATE_KBPS=9.6
-            DELAY_MS=200
+            OPT_RATE_KBPS=9.6
+            OPT_DELAY_MS=200
             ;;
         modem-56k)
-            RATE_KBPS=56
-            DELAY_MS=120
+            OPT_RATE_KBPS=56
+            OPT_DELAY_MS=120
             ;;
         t1)
-            RATE_KBPS=1500
-            DELAY_MS=20
+            OPT_RATE_KBPS=1500
+            OPT_DELAY_MS=20
             ;;
         t3)
-            RATE_KBPS=$((45 * 1000))
-            DELAY_MS=10
+            OPT_RATE_KBPS=$((45 * 1000))
+            OPT_DELAY_MS=10
             ;;
         dsl)
-            RATE_KBPS=$((2 * 1000))
-            DELAY_MS=60
+            OPT_RATE_KBPS=$((2 * 1000))
+            OPT_DELAY_MS=60
             ;;
         cablemodem)
-            RATE_KBPS=$((10 * 1000))
-            DELAY_MS=50
+            OPT_RATE_KBPS=$((10 * 1000))
+            OPT_DELAY_MS=50
             ;;
         wifi-b)
-            RATE_KBPS=$((11 * 1000))
-            DELAY_MS=10
+            OPT_RATE_KBPS=$((11 * 1000))
+            OPT_DELAY_MS=10
             ;;
         wifi-g)
-            RATE_KBPS=$((54 * 1000))
-            DELAY_MS=5
+            OPT_RATE_KBPS=$((54 * 1000))
+            OPT_DELAY_MS=5
             ;;
         wifi-n)
-            RATE_KBPS=$((110 * 1000))
-            DELAY_MS=2
+            OPT_RATE_KBPS=$((110 * 1000))
+            OPT_DELAY_MS=2
             ;;
         eth-10)
-            RATE_KBPS=$((10 * 1000))
-            DELAY_MS=1
+            OPT_RATE_KBPS=$((10 * 1000))
+            OPT_DELAY_MS=1
             ;;
         eth-100)
-            RATE_KBPS=$((100 * 1000))
-            DELAY_MS=1
+            OPT_RATE_KBPS=$((100 * 1000))
+            OPT_DELAY_MS=1
             ;;
         eth-1000)
-            RATE_KBPS=$((1000 * 1000))
-            DELAY_MS=1
+            OPT_RATE_KBPS=$((1000 * 1000))
+            OPT_DELAY_MS=1
             ;;
         vsat)
-            RATE_KBPS=$((5 * 1000))
-            DELAY_MS=500
-            LOSS_PCT=2.0
+            OPT_RATE_KBPS=$((5 * 1000))
+            OPT_DELAY_MS=500
+            OPT_LOSS_PCT=2.0
             ;;
         vsat-busy)
-            RATE_KBPS=$((2 * 1000))
-            DELAY_MS=800
-            LOSS_PCT=4.0
+            OPT_RATE_KBPS=$((2 * 1000))
+            OPT_DELAY_MS=800
+            OPT_LOSS_PCT=4.0
             ;;
         reset)
-            COMMAND="reset"
+            OPT_COMAND="reset"
             ;;
         status)
-            COMMAND="status"
+            OPT_COMAND="status"
             ;;
         -i)
             if [[ -n "${2-}" ]]; then
-                INTERFACE="$2"
+                OPT_INTERFACE="$2"
                 shift
             else
                 echo "ERROR: Missing <Interface>" 1>&2
@@ -227,7 +227,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -r)
             if [[ -n "${2-}" ]]; then
-                RATE_KBPS="$2"
+                OPT_RATE_KBPS="$2"
                 shift
             else
                 echo "ERROR: Missing <Rate>" 1>&2
@@ -236,7 +236,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -d)
             if [[ -n "${2-}" ]]; then
-                DELAY_MS="$2"
+                OPT_DELAY_MS="$2"
                 shift
             else
                 echo "ERROR: Missing <Delay>" 1>&2
@@ -245,7 +245,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -j)
             if [[ -n "${2-}" ]]; then
-                JITTER_MS="$2"
+                OPT_JITTER_MS="$2"
                 shift
             else
                 echo "ERROR: Missing <Jitter>" 1>&2
@@ -254,7 +254,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -l)
             if [[ -n "${2-}" ]]; then
-                LOSS_PCT="$2"
+                OPT_LOSS_PCT="$2"
                 shift
             else
                 echo "ERROR: Missing <Loss>" 1>&2
@@ -270,17 +270,17 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-echo "Using these parameters:"
-echo "INTERFACE=$INTERFACE"
-echo "RATE_KBPS=$RATE_KBPS"
-echo "DELAY_MS=$DELAY_MS"
-echo "JITTER_MS=$JITTER_MS"
-echo "LOSS_PCT=$LOSS_PCT"
+echo "Using these options:"
+echo "OPT_INTERFACE=$OPT_INTERFACE"
+echo "OPT_RATE_KBPS=$OPT_RATE_KBPS"
+echo "OPT_DELAY_MS=$OPT_DELAY_MS"
+echo "OPT_JITTER_MS=$OPT_JITTER_MS"
+echo "OPT_LOSS_PCT=$OPT_LOSS_PCT"
 
 
 
 # "status" is the only command that doesn't require an interface name
-if [[ "$COMMAND" == "status" ]]; then
+if [[ "$OPT_COMAND" == "status" ]]; then
     echo "Show current queueing disciplines"
     (
         set -o xtrace
@@ -291,28 +291,28 @@ fi
 
 
 # Validate interface argument
-if ! grep -Fq "$INTERFACE" </proc/net/dev; then
-    echo "ERROR: Unknown interface '$INTERFACE'" 1>&2
+if ! grep -Fq "$OPT_INTERFACE" </proc/net/dev; then
+    echo "ERROR: Unknown interface '$OPT_INTERFACE'" 1>&2
     exit 1
 fi
 
-if [[ "$COMMAND" == "reset" ]]; then
+if [[ "$OPT_COMAND" == "reset" ]]; then
     echo "Reset queueing discipline"
     (
         set -o xtrace
-        tc qdisc delete dev "$INTERFACE" root
+        tc qdisc delete dev "$OPT_INTERFACE" root
     )
     exit $?
 fi
 
-# "$COMMAND" == "apply"
+# "$OPT_COMAND" == "apply"
 
 # Choose arbitrary numbers for the Handle ID of qdiscs and classes
 QDISC_MAJOR=1
 CLASS_MINOR=12
 
 # If it doesn't exist yet, create the "htb" qdisc under the parent "root"
-if tc qdisc show dev "$INTERFACE" | grep -Fq "qdisc htb ${QDISC_MAJOR}: root"; then
+if tc qdisc show dev "$OPT_INTERFACE" | grep -Fq "qdisc htb ${QDISC_MAJOR}: root"; then
     VERB="change"
     echo "Change existing queueing discipline"
 else
@@ -321,7 +321,7 @@ else
     (
         set -o xtrace
         tc qdisc add \
-            dev "$INTERFACE" \
+            dev "$OPT_INTERFACE" \
             handle "${QDISC_MAJOR}:" \
             root \
             htb default "$CLASS_MINOR"
@@ -332,43 +332,46 @@ echo "Add an HTB class to restrict output rate"
 (
     set -o xtrace
     tc class "$VERB" \
-        dev "$INTERFACE" \
+        dev "$OPT_INTERFACE" \
         classid "${QDISC_MAJOR}:${CLASS_MINOR}" \
         parent "${QDISC_MAJOR}:" \
         htb \
-        rate "${RATE_KBPS}kbit"
+        rate "${OPT_RATE_KBPS}kbit"
 )
 
-# Make sure the NetEm kernel module is loaded
-lsmod | grep -Fq "sch_netem" || modprobe sch_netem
+if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 ]]; then
+    # Make sure the NetEm kernel module is loaded
+    lsmod | grep -Fq "sch_netem" || modprobe sch_netem
 
-# In https://lists.linuxfoundation.org/pipermail/netem/2007-March/001094.html
-# (and https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do)
-# they following is said:
-#
-#     The (default) value 1000 (for "limit") is low, you want about 50% more
-#     than the max packet rate * delay
-#
-# So, we need to calculate the packet rate and find out the ideal "limit" value.
+    # In https://lists.linuxfoundation.org/pipermail/netem/2007-March/001094.html
+    # (and https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do)
+    # they following is said:
+    #
+    #     The (default) value 1000 (for "limit") is low, you want about 50% more
+    #     than the max packet rate * delay
+    #
+    # So, we need to calculate the packet rate and find out the ideal "limit" value.
 
-# Typical Ethernet Layer 2 MTU
-MTU_SIZE=1518
+    # Typical Ethernet Layer 2 MTU
+    MTU_SIZE=1518
 
-# `bc -l` calculates with all decimals, and `printf` rounds to nearest integer
-NETEM_LIMIT="$(printf '%.0f' "$(echo "$RATE_KBPS * 1000 / $MTU_SIZE * $DELAY_MS * 1.5" | bc -l)")"
-[[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
+    # `bc -l` calculates with all decimals, and `printf` rounds to nearest integer
+    NETEM_LIMIT="$(printf '%.0f' "$(echo "$OPT_RATE_KBPS * 1000 / $MTU_SIZE * $OPT_DELAY_MS * 1.5" | bc -l)")"
+    [[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
 
-# Default value for latency and jitter followup burst correlation
-NETEM_CORRELATION_PCT=5
+    # Default value for latency and jitter followup burst correlation
+    # Currently disabled, but this could be changed to play with correlation
+    NETEM_CORRELATION_PCT=0
 
-echo "Add a child NetEm qdisc to emulate packet delay and loss"
-(
-    set -o xtrace
-    tc qdisc "$VERB" \
-        dev "$INTERFACE" \
-        parent "${QDISC_MAJOR}:${CLASS_MINOR}" \
-        netem \
-        limit "$NETEM_LIMIT" \
-        delay "${DELAY_MS}ms" "${JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
-        loss random "${LOSS_PCT}%"
-)
+    echo "Add a child NetEm qdisc to emulate packet delay and loss"
+    (
+        set -o xtrace
+        tc qdisc "$VERB" \
+            dev "$OPT_INTERFACE" \
+            parent "${QDISC_MAJOR}:${CLASS_MINOR}" \
+            netem \
+            limit "$NETEM_LIMIT" \
+            delay "${OPT_DELAY_MS}ms" "${OPT_JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
+            loss random "${OPT_LOSS_PCT}%"
+    )
+fi
