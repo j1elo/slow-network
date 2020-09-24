@@ -54,7 +54,7 @@ slow -i <Interface> status
 
 Arguments:
 
-<Interface>
+-i <Interface>
   Name of the network interface to be configured.
   E.g.: "eth0", "enp0s25", "wlan0", etc.
   Optional. Default: `eth0`.
@@ -103,20 +103,20 @@ Arguments:
   | "vsat-busy"  |    2 mbps |  800 ms |   0 %  |
   -----------------------------------------------
 
-<Rate>
+-r <Rate>
   Maximum bandwidth that the connection must be restricted to,
   in kbps (kilobits per second).
   Optional. Default: `500`.
 
-<Delay>
+-d <Delay>
   Latency forced into the packet transmission, in milliseconds.
   Optional. Default: `0`.
 
-<Jitter>
+-j <Jitter>
   Jitter introduced in the rate of package transmission, in milliseconds.
   Optional. Default: `0`.
 
-<Loss>
+-l <Loss>
   Average emulated packet drop rate, as a loss percentage.
   Optional. Default: `0.0`.
 ```
