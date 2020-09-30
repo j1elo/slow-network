@@ -339,7 +339,7 @@ echo "Add an HTB class to restrict output rate"
         rate "${OPT_RATE_KBPS}kbit"
 )
 
-if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 ]]; then
+if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 || "$OPT_LOSS_PCT" != "0.0" ]]; then
     # Make sure the NetEm kernel module is loaded
     lsmod | grep -Fq "sch_netem" || modprobe sch_netem
 
