@@ -311,7 +311,18 @@ fi
 QDISC_MAJOR=1
 CLASS_MINOR=12
 
-# If it doesn't exist yet, create the "htb" qdisc under the parent "root"
+# HTB assumes an MTU of 1600, but this is different for the loopback interface.
+# Source: HTB FAQ, http://luxik.cdi.cz/~devik/qos/htb/htbfaq.htm
+# HTB_MTU=1600 # Default from HTB.
+# if [[ "$OPT_INTERFACE" == "lo" ]]; then
+#     HTB_MTU="$(ip -oneline link show lo | grep -Po 'mtu \K\d+')"
+# fi
+#
+# On top of that, WebRTC uses an MTU of 1200 Bytes:
+# https://webrtc.googlesource.com/src/+/d82a02c837d33cdfd75121e40dcccd32515e42d6/media/engine/constants.cc#15
+HTB_MTU=1200
+
+# If it doesn't exist yet, create a root qdisc.
 if tc qdisc show dev "$OPT_INTERFACE" | grep -Fq "qdisc htb ${QDISC_MAJOR}: root"; then
     VERB="change"
     echo "Change existing queueing discipline"
@@ -322,56 +333,79 @@ else
         set -o xtrace
         tc qdisc add \
             dev "$OPT_INTERFACE" \
-            handle "${QDISC_MAJOR}:" \
             root \
-            htb default "$CLASS_MINOR"
+            handle "${QDISC_MAJOR}:" \
+            htb \
+                default "$CLASS_MINOR"
     )
 fi
 
-echo "Add an HTB class to restrict output rate"
+echo "Set HTB class to restrict output rate"
 (
+    # NOTE: In `tc`, "kbps" means *kiloBytes*, and "kbit" means *kilobits*.
     set -o xtrace
     tc class "$VERB" \
         dev "$OPT_INTERFACE" \
-        classid "${QDISC_MAJOR}:${CLASS_MINOR}" \
         parent "${QDISC_MAJOR}:" \
+        classid "${QDISC_MAJOR}:${CLASS_MINOR}" \
         htb \
-        rate "${OPT_RATE_KBPS}kbit"
+            rate "${OPT_RATE_KBPS}kbit" \
+            mtu "$HTB_MTU"
 )
+
+# Calculate the needed packet buffer to use NetEm delay feature.
+#
+# > if you implement a delay (as you add with the "delay" argument), those
+# > packets have to wait somewhere. The number we computed is the maximal
+# > number of packets that could be waiting at anytime. You need to prepare
+# > enough "slots". That's why if the limit is not high enough, you'll start
+# > dropping packet (independently of the loss parameter)
+#
+# > The "limit" parameter refers to the number of buffers allocated in the
+# > netem module. The limit must be adjusted to support the number of frames
+# > delayed (500ms for e.g.) at a given data rate.
+#
+# Sources:
+# - https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do
+# - https://lists.linuxfoundation.org/pipermail/netem/2007-March/001094.html
+NETEM_LIMIT=1000 # Default from NetEm.
+if [[ "$OPT_DELAY_MS" -gt 0 ]]; then
+    # Assuming a maximal packet size is too optimistic, so later we'll anchor
+    # the resulting limit to a high minimum, to account for smaller packets.
+    NETEM_PACKET_SIZE=1500
+
+    BYTES_PER_S="$(echo "$OPT_RATE_KBPS * 1000 / 8" | bc -l)"
+    PACKETS_PER_S="$(echo "$BYTES_PER_S / $NETEM_PACKET_SIZE" | bc -l)"
+    DELAY_S="$(echo "$OPT_DELAY_MS / 1000" | bc -l)"
+
+    # `printf` rounds to nearest integer.
+    NETEM_LIMIT="$(printf '%.0f' "$(echo "$PACKETS_PER_S * $DELAY_S * 1.5" | bc -l)")"
+
+    echo "NETEM_LIMIT 1: $NETEM_LIMIT"
+    [[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
+    echo "NETEM_LIMIT 2: $NETEM_LIMIT"
+fi
+
+# Default value for latency and jitter followup burst correlation
+# Currently disabled, but this could be changed to play with correlation.
+NETEM_CORRELATION_PCT=0
 
 if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 || "$OPT_LOSS_PCT" != "0.0" ]]; then
     # Make sure the NetEm kernel module is loaded
     lsmod | grep -Fq "sch_netem" || modprobe sch_netem
 
-    # In https://lists.linuxfoundation.org/pipermail/netem/2007-March/001094.html
-    # (and https://stackoverflow.com/questions/18792347/what-does-option-limit-in-tc-netem-mean-and-do)
-    # they following is said:
-    #
-    #     The (default) value 1000 (for "limit") is low, you want about 50% more
-    #     than the max packet rate * delay
-    #
-    # So, we need to calculate the packet rate and find out the ideal "limit" value.
-
-    # Typical Ethernet Layer 2 MTU
-    MTU_SIZE=1518
-
-    # `bc -l` calculates with all decimals, and `printf` rounds to nearest integer
-    NETEM_LIMIT="$(printf '%.0f' "$(echo "$OPT_RATE_KBPS * 1000 / $MTU_SIZE * $OPT_DELAY_MS * 1.5" | bc -l)")"
-    [[ "$NETEM_LIMIT" -lt 10000 ]] && NETEM_LIMIT=10000
-
-    # Default value for latency and jitter followup burst correlation
-    # Currently disabled, but this could be changed to play with correlation
-    NETEM_CORRELATION_PCT=0
-
-    echo "Add a child NetEm qdisc to emulate packet delay and loss"
+    echo "Set NetEm qdisc to emulate packet delay and loss"
     (
         set -o xtrace
         tc qdisc "$VERB" \
             dev "$OPT_INTERFACE" \
             parent "${QDISC_MAJOR}:${CLASS_MINOR}" \
             netem \
-            limit "$NETEM_LIMIT" \
-            delay "${OPT_DELAY_MS}ms" "${OPT_JITTER_MS}ms" "${NETEM_CORRELATION_PCT}%" \
-            loss random "${OPT_LOSS_PCT}%"
+                limit "$NETEM_LIMIT" \
+                delay \
+                    "${OPT_DELAY_MS}ms" \
+                    "${OPT_JITTER_MS}ms" \
+                    "${NETEM_CORRELATION_PCT}%" \
+                loss random "${OPT_LOSS_PCT}%"
     )
 fi

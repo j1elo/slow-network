@@ -123,7 +123,8 @@ Arguments:
 
 ## More reading
 
-- The Linux Foundation - [netem](https://wiki.linuxfoundation.org/networking/netem) | [Archive](https://web.archive.org/web/20191023125240/https://wiki.linuxfoundation.org/networking/netem)
+- The Linux Documentation Project (TLDP): [Traffic Control HOWTO](https://tldp.org/HOWTO/Traffic-Control-HOWTO/index.html)
+- The Linux Foundation: [netem](https://wiki.linuxfoundation.org/networking/netem) | [Archive](https://web.archive.org/web/20191023125240/https://wiki.linuxfoundation.org/networking/netem)
 - Use Linux Traffic Control as impairment node in a test environment
   - [Part 1](https://www.excentis.com/blog/use-linux-traffic-control-impairment-node-test-environment-part-1) | [Archive](https://web.archive.org/web/20191023121720/https://www.excentis.com/blog/use-linux-traffic-control-impairment-node-test-environment-part-1/)
   - [Part 2](https://www.excentis.com/blog/use-linux-traffic-control-impairment-node-test-environment-part-2) | [Archive](https://web.archive.org/web/20191023121821/https://www.excentis.com/blog/use-linux-traffic-control-impairment-node-test-environment-part-2)
@@ -132,6 +133,7 @@ Arguments:
   - [tc - Traffic Control](https://manpages.ubuntu.com/manpages/bionic/en/man8/tc.8.html)
   - [NetEm - Network Emulator](https://manpages.ubuntu.com/manpages/bionic/en/man8/tc-netem.8.html)
   - [HTB - Hierarchy Token Bucket](https://manpages.ubuntu.com/manpages/bionic/en/man8/tc-htb.8.html)
+- [HTB User Guide](http://luxik.cdi.cz/~devik/qos/htb/manual/userg.htm)
 - Simulating low bandwidths: how to make sure your apps work in the field | [Archive](https://web.archive.org/web/20121104183730/http://blog.aptivate.org/2010/01/23/make-sure-your-apps-work-in-the-field/)
 
 ## Credits
