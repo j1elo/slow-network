@@ -386,9 +386,11 @@ if [[ "$OPT_DELAY_MS" -gt 0 ]]; then
     echo "NETEM_LIMIT 2: $NETEM_LIMIT"
 fi
 
-# Default value for latency and jitter followup burst correlation
-# Currently disabled, but this could be changed to play with correlation.
-NETEM_CORRELATION_PCT=0
+# Default value for latency, jitter, and loss burst correlation.
+# This is the probability % of each packet to suffer the same condition than the
+# previous one. A good way to simulate network condition bursts.
+# Cannot be 0.
+NETEM_CORRELATION_PCT=25
 
 if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 || "$OPT_LOSS_PCT" != "0.0" ]]; then
     # Make sure the NetEm kernel module is loaded
@@ -406,6 +408,9 @@ if [[ "$OPT_DELAY_MS" -gt 0 || "$OPT_JITTER_MS" -gt 0 || "$OPT_LOSS_PCT" != "0.0
                     "${OPT_DELAY_MS}ms" \
                     "${OPT_JITTER_MS}ms" \
                     "${NETEM_CORRELATION_PCT}%" \
-                loss random "${OPT_LOSS_PCT}%"
+                loss \
+                    random \
+                    "${OPT_LOSS_PCT}%" \
+                    "${NETEM_CORRELATION_PCT}%"
     )
 fi
