@@ -87,7 +87,7 @@ set -o errexit -o errtrace -o pipefail -o nounset
 #/ -r <Rate>
 #/   Maximum bandwidth that the connection must be restricted to,
 #/   in kbps (kilobits per second).
-#/   Optional. Default: `500`.
+#/   Optional. Default: `5000`.
 #/
 #/ -d <Delay>
 #/   Latency forced into the packet transmission, in milliseconds.
@@ -130,7 +130,7 @@ fi
 
 OPT_COMAND="apply"
 OPT_INTERFACE="eth0"
-OPT_RATE_KBPS=500
+OPT_RATE_KBPS=5000
 OPT_DELAY_MS=0
 OPT_JITTER_MS=0
 OPT_LOSS_PCT=0.0
