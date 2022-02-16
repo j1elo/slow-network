@@ -123,6 +123,9 @@ fi
     exit 1
 }
 
+# Set numeric locale, to ensure dot (`.`) as decimal separator.
+export LC_NUMERIC="C"
+
 
 
 # Parse options
